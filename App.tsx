@@ -50,10 +50,14 @@ const App: React.FC = () => {
       updateCanvas(activeCanvas.id, updatedObjects);
   }, [activeCanvas, canvases]);
 
+  // When a new object is added, it is automatically selected for immediate interaction.
   const handleAddObject = useCallback((newObject: CanvasObject) => {
     if (!activeCanvas) return;
     const updatedObjects = [...activeCanvas.objects, newObject];
     updateCanvas(activeCanvas.id, updatedObjects);
+    // Select the newly created object and switch to the select tool.
+    setSelectedObjectId(newObject.id);
+    setActiveTool('select');
   }, [activeCanvas, canvases]);
   
   const handleDeleteObject = useCallback((id: string) => {

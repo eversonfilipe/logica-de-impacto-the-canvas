@@ -1,12 +1,81 @@
-import React from 'react';
-import type { CanvasObject } from '../../types';
+import React, { useEffect, useRef } from 'react';
+import type { CanvasObject, ShapeObject, TextBoxObject } from '../../types';
 import StickyNote from './StickyNote';
 import { TrashIcon } from '../../components/icons';
 
-// In a real app, you'd have components for Shape and Text too.
-// For now, we only have StickyNote.
-const Shape = ({ object }: { object: any }) => <div className="w-full h-full bg-gray-300 rounded-md" style={{backgroundColor: object.data.color}}>{object.data.shape}</div>;
-const TextBox = ({ object }: { object: any }) => <div className="w-full h-full"><p>{object.data.text}</p></div>;
+// A dedicated component for rendering geometric shapes using SVG.
+// It handles rectangles, ellipses, and arrows within a bounding box.
+const Shape: React.FC<{ object: ShapeObject; size: {width: number, height: number} }> = ({ object, size }) => {
+    const { shape, color, stroke, strokeWidth } = object.data;
+    const { width, height } = size;
+
+    return (
+        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+            {/* Arrowhead definition for the 'arrow' shape */}
+            <defs>
+                <marker
+                    id={`arrowhead-${object.id}`}
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill={stroke} />
+                </marker>
+            </defs>
+            {(() => {
+                switch(shape) {
+                    case 'rectangle':
+                        return <rect x="0" y="0" width={width} height={height} fill={color} stroke={stroke} strokeWidth={strokeWidth} />;
+                    case 'ellipse':
+                        return <ellipse cx={width/2} cy={height/2} rx={width/2} ry={height/2} fill={color} stroke={stroke} strokeWidth={strokeWidth} />;
+                    case 'arrow':
+                        return <line 
+                                   x1={strokeWidth} y1={strokeWidth} 
+                                   x2={width - strokeWidth} y2={height - strokeWidth} 
+                                   stroke={stroke} 
+                                   strokeWidth={strokeWidth} 
+                                   markerEnd={`url(#arrowhead-${object.id})`}
+                               />;
+                    default:
+                        return null;
+                }
+            })()}
+        </svg>
+    )
+};
+
+// A component for rendering and editing free-form text on the canvas.
+const TextBox: React.FC<{
+    object: TextBoxObject;
+    onTextChange: (id: string, text: string) => void;
+    isSelected: boolean;
+}> = ({ object, onTextChange, isSelected }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const { text, color, fontSize } = object.data;
+    
+    // Auto-focus logic for immediate editing upon creation.
+    useEffect(() => {
+        if (isSelected && textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.select();
+        }
+    }, [isSelected]);
+    
+    return (
+        <textarea
+            ref={textareaRef}
+            className="w-full h-full bg-transparent resize-none focus:outline-none p-2"
+            style={{ color, fontSize: `${fontSize}px` }}
+            value={text}
+            onChange={(e) => onTextChange(object.id, e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()} // Prevent canvas pan
+            placeholder="Type..."
+        />
+    )
+};
+
 
 interface CanvasObjectWrapperProps {
   object: CanvasObject;
@@ -16,22 +85,26 @@ interface CanvasObjectWrapperProps {
   onSelect: () => void;
 }
 
+// This component wraps each canvas object, providing common functionality
+// like positioning, selection highlights, drag handles, and a delete button.
 const CanvasObjectWrapper: React.FC<CanvasObjectWrapperProps> = ({ object, onUpdate, onDelete, isSelected, onSelect }) => {
   
+  // A single handler to update the text content for both StickyNote and TextBox.
   const handleTextChange = (id: string, text: string) => {
-    if (object.type === 'sticky') {
+    if (object.type === 'sticky' || object.type === 'text') {
         onUpdate(id, { data: { ...object.data, text } });
     }
   }
 
+  // Renders the specific component based on the object's type.
   const renderObject = () => {
     switch (object.type) {
       case 'sticky':
-        return <StickyNote note={object} onTextChange={handleTextChange} isFocused={false} />;
+        return <StickyNote note={object} onTextChange={handleTextChange} isSelected={isSelected} />;
       case 'shape':
-        return <Shape object={object} />;
+        return <Shape object={object} size={object.size} />;
       case 'text':
-        return <TextBox object={object} />;
+        return <TextBox object={object} onTextChange={handleTextChange} isSelected={isSelected}/>;
       default:
         return null;
     }
@@ -52,9 +125,11 @@ const CanvasObjectWrapper: React.FC<CanvasObjectWrapperProps> = ({ object, onUpd
         height: `${object.size.height}px`,
         outline: isSelected ? '2px solid #3B82F6' : 'none',
         outlineOffset: '4px',
+        borderRadius: '0.25rem', // Consistent border-radius
       }}
       onMouseDown={handleMouseDown}
     >
+      {/* Delete button shown only when the object is selected */}
       {isSelected && (
         <button
           onClick={() => onDelete(object.id)}
