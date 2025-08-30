@@ -1,4 +1,4 @@
-export type Tool = 'select' | 'text' | 'sticky' | 'rectangle' | 'ellipse' | 'arrow';
+export type Tool = 'select' | 'text' | 'sticky' | 'rectangle' | 'ellipse' | 'arrow' | 'draw';
 
 export interface CanvasObjectBase {
   id: string;
@@ -39,7 +39,21 @@ export interface ShapeObject extends CanvasObjectBase {
   data: ShapeData;
 }
 
-export type CanvasObject = StickyNoteObject | TextBoxObject | ShapeObject;
+// Represents a freehand drawing on the canvas.
+export interface DrawingData {
+    // Array of points that make up the path.
+    points: { x: number; y: number }[];
+    stroke: string;
+    strokeWidth: number;
+}
+
+export interface DrawingObject extends CanvasObjectBase {
+    type: 'draw';
+    data: DrawingData;
+}
+
+
+export type CanvasObject = StickyNoteObject | TextBoxObject | ShapeObject | DrawingObject;
 
 export interface Canvas {
   id: string;

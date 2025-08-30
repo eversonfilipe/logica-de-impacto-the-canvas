@@ -1,16 +1,16 @@
-
 import React, { useState } from 'react';
-import { AiSparklesIcon, DocumentTextIcon, ChatBubbleIcon, LoadingSpinner } from '../../components/icons';
+import { AiSparklesIcon, DocumentTextIcon, ChatBubbleIcon, LoadingSpinner, AddNoteIcon } from '../../components/icons';
 
 interface AiPanelProps {
   onSummarize: () => void;
   onGenerateBrief: () => void;
   onChat: (message: string) => void;
+  onAddAiResponseToCanvas: (content: string) => void;
   isLoading: boolean;
   aiResponse: string;
 }
 
-const AiPanel: React.FC<AiPanelProps> = ({ onSummarize, onGenerateBrief, onChat, isLoading, aiResponse }) => {
+const AiPanel: React.FC<AiPanelProps> = ({ onSummarize, onGenerateBrief, onChat, onAddAiResponseToCanvas, isLoading, aiResponse }) => {
   const [chatMessage, setChatMessage] = useState('');
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
@@ -21,6 +21,17 @@ const AiPanel: React.FC<AiPanelProps> = ({ onSummarize, onGenerateBrief, onChat,
       setChatMessage('');
     }
   };
+
+  // Helper to check if the AI response is a structured brief (JSON)
+  const isProjectBrief = (response: string): boolean => {
+    try {
+        const parsed = JSON.parse(response);
+        return typeof parsed === 'object' && parsed !== null && ('projectName' in parsed || 'summary' in parsed);
+    } catch {
+        return false;
+    }
+  }
+
 
   if (!isPanelOpen) {
     return (
@@ -58,7 +69,19 @@ const AiPanel: React.FC<AiPanelProps> = ({ onSummarize, onGenerateBrief, onChat,
       <div className="flex-grow p-4 overflow-y-auto border-t border-gray-200 dark:border-gray-700">
         {isLoading && <div className="flex justify-center items-center h-full"><LoadingSpinner className="w-8 h-8 text-blue-500" /></div>}
         {!isLoading && aiResponse && (
-          <div className="prose prose-sm dark:prose-invert bg-gray-100 dark:bg-gray-700 rounded-md p-3 whitespace-pre-wrap">{aiResponse}</div>
+            <div>
+                 <div className="prose prose-sm dark:prose-invert bg-gray-100 dark:bg-gray-700 rounded-md p-3 whitespace-pre-wrap">{aiResponse}</div>
+                 {/* Show 'Add to Canvas' button if the response is a project brief */}
+                 {isProjectBrief(aiResponse) && (
+                     <button
+                        onClick={() => onAddAiResponseToCanvas(aiResponse)}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 mt-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition"
+                     >
+                        <AddNoteIcon className="w-5 h-5" />
+                        <span>Add Brief to Canvas</span>
+                     </button>
+                 )}
+            </div>
         )}
          {!isLoading && !aiResponse && (
           <div className="text-center text-gray-500 dark:text-gray-400 h-full flex items-center justify-center">

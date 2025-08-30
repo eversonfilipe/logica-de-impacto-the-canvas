@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import type { CanvasObject, ShapeObject, TextBoxObject } from '../../types';
+import type { CanvasObject, ShapeObject, TextBoxObject, DrawingObject } from '../../types';
 import StickyNote from './StickyNote';
 import { TrashIcon } from '../../components/icons';
 
@@ -10,7 +10,7 @@ const Shape: React.FC<{ object: ShapeObject; size: {width: number, height: numbe
     const { width, height } = size;
 
     return (
-        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="w-full h-full" style={{overflow: 'visible'}}>
             {/* Arrowhead definition for the 'arrow' shape */}
             <defs>
                 <marker
@@ -31,9 +31,10 @@ const Shape: React.FC<{ object: ShapeObject; size: {width: number, height: numbe
                     case 'ellipse':
                         return <ellipse cx={width/2} cy={height/2} rx={width/2} ry={height/2} fill={color} stroke={stroke} strokeWidth={strokeWidth} />;
                     case 'arrow':
+                        // The arrow is drawn diagonally across its bounding box.
                         return <line 
-                                   x1={strokeWidth} y1={strokeWidth} 
-                                   x2={width - strokeWidth} y2={height - strokeWidth} 
+                                   x1={strokeWidth} y1={height - strokeWidth} // Start from bottom-left
+                                   x2={width - strokeWidth} y2={strokeWidth} // End at top-right
                                    stroke={stroke} 
                                    strokeWidth={strokeWidth} 
                                    markerEnd={`url(#arrowhead-${object.id})`}
@@ -76,6 +77,28 @@ const TextBox: React.FC<{
     )
 };
 
+// A component for rendering a freehand drawing from a set of points.
+const Drawing: React.FC<{ object: DrawingObject; size: {width: number, height: number} }> = ({ object, size }) => {
+    const { points, stroke, strokeWidth } = object.data;
+    if (points.length < 2) return null;
+
+    // Creates the 'd' attribute for an SVG path from an array of points.
+    const pathData = points.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x} ${p.y}`).join(' ');
+
+    return (
+        <svg width="100%" height="100%" viewBox={`0 0 ${size.width} ${size.height}`} style={{overflow: 'visible'}}>
+            <path
+                d={pathData}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+};
+
 
 interface CanvasObjectWrapperProps {
   object: CanvasObject;
@@ -105,6 +128,8 @@ const CanvasObjectWrapper: React.FC<CanvasObjectWrapperProps> = ({ object, onUpd
         return <Shape object={object} size={object.size} />;
       case 'text':
         return <TextBox object={object} onTextChange={handleTextChange} isSelected={isSelected}/>;
+      case 'draw':
+        return <Drawing object={object} size={object.size} />;
       default:
         return null;
     }
@@ -117,7 +142,7 @@ const CanvasObjectWrapper: React.FC<CanvasObjectWrapperProps> = ({ object, onUpd
 
   return (
     <div
-      className={`absolute cursor-move transition-shadow duration-200 ${isSelected ? 'shadow-2xl z-20' : 'z-10'}`}
+      className={`absolute transition-shadow duration-200 ${isSelected ? 'shadow-2xl z-20' : 'z-10'}`}
       style={{
         left: `${object.position.x}px`,
         top: `${object.position.y}px`,
@@ -125,7 +150,8 @@ const CanvasObjectWrapper: React.FC<CanvasObjectWrapperProps> = ({ object, onUpd
         height: `${object.size.height}px`,
         outline: isSelected ? '2px solid #3B82F6' : 'none',
         outlineOffset: '4px',
-        borderRadius: '0.25rem', // Consistent border-radius
+        borderRadius: '0.25rem',
+        cursor: 'move',
       }}
       onMouseDown={handleMouseDown}
     >

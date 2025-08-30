@@ -3,14 +3,11 @@ import CanvasArea from './features/canvas/CanvasArea';
 import Toolbar from './features/toolbar/Toolbar';
 import AiPanel from './features/ai/AiPanel';
 import CanvasManager from './features/sidebar/CanvasManager';
-import type { Canvas, CanvasObject, Tool } from './types';
-import { INITIAL_CANVASES, STICKY_NOTE_COLORS, SHAPE_COLORS } from './constants';
+import type { Canvas, CanvasObject, Tool, TextBoxObject } from './types';
+import { INITIAL_CANVASES } from './constants';
 import * as geminiService from './services/geminiService';
 
 const App: React.FC = () => {
-  // FIX: Removed API key state management to adhere to security guidelines.
-  // The API key is now handled exclusively via environment variables in the service layer.
-  
   const [canvases, setCanvases] = useState<Canvas[]>(INITIAL_CANVASES);
   const [activeCanvasId, setActiveCanvasId] = useState<string>(INITIAL_CANVASES[0]?.id || '');
   
@@ -24,7 +21,6 @@ const App: React.FC = () => {
   const activeCanvas = canvases.find(c => c.id === activeCanvasId);
   
   useEffect(() => {
-    // FIX: Removed API key loading logic.
     const handleKeyDown = (e: KeyboardEvent) => {
         if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
             handleDeleteObject(selectedObjectId);
@@ -34,23 +30,18 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedObjectId]);
 
-  // FIX: Removed handleApiKeySubmit as API key is no longer managed in the UI.
-  
   const updateCanvas = (canvasId: string, updatedObjects: CanvasObject[]) => {
       setCanvases(canvases.map(c => c.id === canvasId ? { ...c, objects: updatedObjects } : c));
   };
   
   const handleUpdateObject = useCallback((id: string, newObjectData: Partial<CanvasObject>) => {
       if (!activeCanvas) return;
-      // FIX: Add type assertion to resolve TypeScript error. The spread operator with a union type
-      // was causing incorrect type inference. The actual usage is safe, so an assertion is appropriate here.
       const updatedObjects = activeCanvas.objects.map(obj => 
         obj.id === id ? { ...obj, ...newObjectData } as CanvasObject : obj
       );
       updateCanvas(activeCanvas.id, updatedObjects);
   }, [activeCanvas, canvases]);
 
-  // When a new object is added, it is automatically selected for immediate interaction.
   const handleAddObject = useCallback((newObject: CanvasObject) => {
     if (!activeCanvas) return;
     const updatedObjects = [...activeCanvas.objects, newObject];
@@ -66,9 +57,36 @@ const App: React.FC = () => {
     updateCanvas(activeCanvas.id, updatedObjects);
     setSelectedObjectId(null);
   }, [activeCanvas, canvases]);
+    
+  // Creates a new text object on the canvas from the AI-generated content.
+  const handleAddAiResponseToCanvas = (content: string) => {
+      if (!activeCanvas) return;
+      
+      let formattedText = content;
+      try {
+          // Pretty-print the JSON for better readability on the canvas
+          const parsed = JSON.parse(content);
+          formattedText = JSON.stringify(parsed, null, 2);
+      } catch {
+          // If it's not JSON, use the raw text.
+      }
+      
+      const newTextObject: TextBoxObject = {
+          id: `ai-doc-${Date.now()}`,
+          type: 'text',
+          position: { x: 100, y: 100 }, // Default position
+          size: { width: 400, height: 500 }, // Larger size for a document
+          data: {
+              text: formattedText,
+              fontSize: 14,
+              color: '#333333'
+          }
+      };
+      
+      handleAddObject(newTextObject);
+  }
 
   // AI Handlers
-  // FIX: Updated AI action handler to not pass the API key, aligning with service layer changes.
   const handleAiAction = async (action: (objects: CanvasObject[], ...args: any[]) => Promise<string>, ...args: any[]) => {
     if (!activeCanvas || activeCanvas.objects.length === 0) {
         setAiResponse("Canvas is empty. Add some notes to use AI features.");
@@ -92,18 +110,12 @@ const App: React.FC = () => {
   const handleSummarize = () => handleAiAction(geminiService.summarizeCanvas);
   const handleGenerateBrief = async () => {
     await handleAiAction(geminiService.generateProjectBrief);
-    setAiResponse(prev => {
-        try {
-            const parsed = JSON.parse(prev);
-            return JSON.stringify(parsed, null, 2);
-        } catch { return prev; }
-    });
+    // No longer formatting here; the raw JSON is passed to the panel
   };
   const handleChat = (message: string) => handleAiAction(geminiService.canvasChat, message);
 
   return (
     <div className="h-screen w-screen font-sans text-gray-900 dark:text-gray-100 flex flex-col">
-      {/* FIX: Removed ApiKeyModal component. */}
       
       <header className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 shadow-sm z-40">
         <h1 className="text-lg font-bold">The Canvas: Lógica de Impacto</h1>
@@ -143,11 +155,11 @@ const App: React.FC = () => {
             />
         )}
         
-        {/* FIX: AI Panel is now always available. */}
         <AiPanel 
             onSummarize={handleSummarize}
             onGenerateBrief={handleGenerateBrief}
             onChat={handleChat}
+            onAddAiResponseToCanvas={handleAddAiResponseToCanvas}
             isLoading={isLoadingAi}
             aiResponse={aiResponse}
         />

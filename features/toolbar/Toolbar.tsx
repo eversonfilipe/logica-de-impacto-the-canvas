@@ -1,5 +1,5 @@
 import React from 'react';
-import { PointerIcon, AddNoteIcon, TextIcon, RectangleIcon, EllipseIcon, ArrowIcon } from '../../components/icons';
+import { PointerIcon, AddNoteIcon, TextIcon, RectangleIcon, EllipseIcon, ArrowIcon, PencilIcon } from '../../components/icons';
 import type { Tool } from '../../types';
 
 interface ToolbarProps {
@@ -14,6 +14,7 @@ const tools: { name: Tool, icon: React.FC<{className?: string}>, label: string }
     { name: 'rectangle', icon: RectangleIcon, label: 'Add Rectangle' },
     { name: 'ellipse', icon: EllipseIcon, label: 'Add Ellipse' },
     { name: 'arrow', icon: ArrowIcon, label: 'Add Arrow' },
+    { name: 'draw', icon: PencilIcon, label: 'Draw Tool' },
 ];
 
 const Toolbar: React.FC<ToolbarProps> = ({ activeTool, onToolChange }) => {
